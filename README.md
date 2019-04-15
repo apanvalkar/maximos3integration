@@ -17,3 +17,5 @@ mxe.attachmentstorage = fully qualified class name (com.aniruddh.s3.doclinks.S3A
 S3AttachmentStorage class is called whenever an attachment is added, viewed or removed.
 
 This class is tasked with adding attachments and serving them from S3 bucket. 
+
+Disclaimer - If you decide to use this, it is your responsibility to understand and implement it correctly.
