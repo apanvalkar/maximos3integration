@@ -37,19 +37,14 @@ public class S3AttachmentStorage extends AttachmentStorage{
 	@Override
 	public void createAttachment(String fileName, byte[] fileBytes, String mimeType) throws RemoteException, MXException {
 		
-		String awsAccessKey = MicUtil.getProperty("mxe.s3.accesskey");
-		String awsSecretKey = MicUtil.getProperty("mxe.s3.secretkey");
 		String bucketName = MicUtil.getProperty("mxe.s3.bucket");
-		String regionName = MicUtil.getProperty("mxe.s3.region");
-		//String pathPrefix = MicUtil.getProperty("mxe.s3.pseudo.pathprefix");
 		
 		ByteArrayInputStream fileToUpload = new ByteArrayInputStream(fileBytes);
 		
-		logger.info("S3 Properties: " + awsAccessKey + "  " + awsSecretKey + "  " + bucketName  + "    " + regionName);
 		
 		logger.info("fileName: " + fileName);
 		
-		logger.info("bytes: " + fileBytes);
+		
 		
 		logger.info("mimeType: " + mimeType);
 				
@@ -57,7 +52,7 @@ public class S3AttachmentStorage extends AttachmentStorage{
 		 
 		fileName = fileName.substring(pathPrefix.length() + 1);
 				
-		uploadToS3(awsAccessKey, awsSecretKey, regionName, bucketName, fileName, fileToUpload, mimeType);
+		uploadToS3(bucketName, fileName, fileToUpload, mimeType);
 		
 		try {
 			fileToUpload.close();
@@ -77,11 +72,10 @@ public class S3AttachmentStorage extends AttachmentStorage{
 
 	@Override
 	public byte[] getAttachment(MboRemote doclink) throws RemoteException, MXException {
-		// TODO Auto-generated method stub
-		String awsAccessKey = MicUtil.getProperty("mxe.s3.accesskey");
-		String awsSecretKey = MicUtil.getProperty("mxe.s3.secretkey");
+		
+		
 		String bucketName = MicUtil.getProperty("mxe.s3.bucket");
-		String regionName = MicUtil.getProperty("mxe.s3.region");
+		
 		
 		 String pathPrefix = MicUtil.getProperty("mxe.s3.pseudo.pathprefix");
 		 String urlName = doclink.getString("urlname");
@@ -89,9 +83,9 @@ public class S3AttachmentStorage extends AttachmentStorage{
 		
 		
 		logger.info("Final Url: " + urlName);
-		logger.info("S3 Properties: " + awsAccessKey + "  " + awsSecretKey + "  " + bucketName  + "    " + regionName);
 		
-		byte [] fileBytes = readFromS3(awsAccessKey, awsSecretKey, regionName, bucketName,urlName);
+		
+		byte [] fileBytes = readFromS3(bucketName,urlName);
 		
 		
 		return fileBytes;
@@ -100,10 +94,9 @@ public class S3AttachmentStorage extends AttachmentStorage{
 	@Override
 	public byte[] getAttachment(String urlName) throws RemoteException, MXException {
 		
-		String awsAccessKey = MicUtil.getProperty("mxe.s3.accesskey");
-		String awsSecretKey = MicUtil.getProperty("mxe.s3.secretkey");
+		
 		String bucketName = MicUtil.getProperty("mxe.s3.bucket");
-		String regionName = MicUtil.getProperty("mxe.s3.region");
+		
 		
 		 String pathPrefix = MicUtil.getProperty("mxe.s3.pseudo.pathprefix");
 		 
@@ -111,9 +104,9 @@ public class S3AttachmentStorage extends AttachmentStorage{
 		
 		
 		logger.info("Final Url: " + urlName);
-		logger.info("S3 Properties: " + awsAccessKey + "  " + awsSecretKey + "  " + bucketName  + "    " + regionName);
 		
-		byte [] fileBytes = readFromS3(awsAccessKey, awsSecretKey, regionName, bucketName,urlName);
+		
+		byte [] fileBytes = readFromS3(bucketName,urlName);
 		
 		
 		return fileBytes;
@@ -129,16 +122,17 @@ public class S3AttachmentStorage extends AttachmentStorage{
 		logger.info("doctype: " + doclink.getString("doctype"));
 		logger.info("document: " + doclink.getString("document"));
 		
-		 String pathPrefix = MicUtil.getProperty("mxe.s3.pseudo.pathprefix");
+		validateFileName(logger, documentName);
+		String pathPrefix = MicUtil.getProperty("mxe.s3.pseudo.pathprefix");
 	    return pathPrefix + "/" + documentName;
 	}
 	
 
 			  
 
+	
 	@Override
 	public void setupStorage() throws RemoteException, MXException {
-		// TODO Auto-generated method stub
 		
 	}
 
@@ -148,16 +142,11 @@ public class S3AttachmentStorage extends AttachmentStorage{
 		return null;
 	}
 	
-	private boolean uploadToS3(String awsAccessKey, String awsSecretKey, String clientRegion, 
-			String bucketName, String fileName, ByteArrayInputStream fileBytes, String mimeType) {
+	private boolean uploadToS3(String bucketName, String fileName, ByteArrayInputStream fileBytes, String mimeType) {
 		
 try {
         	
-        	BasicAWSCredentials awsCreds = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
-        	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-        							.withRegion(clientRegion)
-        	                        .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-        	                        .build();
+        	AmazonS3 s3Client = setupS3Connection();
         	
         	
         	
@@ -175,7 +164,8 @@ try {
            // request.setMetadata(metadata);
             s3Client.putObject(request);
             
-            logger.info("File uploaded.......................................");
+            logger.info("File uploaded");
+            s3Client.shutdown();
         }
         catch(AmazonServiceException e) {
             // The call was transmitted successfully, but Amazon S3 couldn't process 
@@ -192,15 +182,11 @@ try {
 		
 	}
 
-	private byte[] readFromS3(String awsAccessKey, String awsSecretKey, String clientRegion, 
-			String bucketName, String fileName) {
+	private byte[] readFromS3(String bucketName, String fileName) {
 		
 
-		BasicAWSCredentials awsCreds = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
-    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-    							.withRegion(clientRegion)
-    	                        .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-    	                        .build();
+		
+    	AmazonS3 s3Client = setupS3Connection();
 		
 		S3Object object = s3Client.getObject(new GetObjectRequest(bucketName, fileName));
 		InputStream objectData = object.getObjectContent();
@@ -214,9 +200,24 @@ try {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		s3Client.shutdown();
 		
 		return fileByteArray;
 		
+	}
+	
+	private AmazonS3 setupS3Connection() {
+		
+		String awsAccessKey = MicUtil.getProperty("mxe.s3.accesskey");
+		String awsSecretKey = MicUtil.getProperty("mxe.s3.secretkey");
+		String clientRegion = MicUtil.getProperty("mxe.s3.region");
+		
+		BasicAWSCredentials awsCreds = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+    							.withRegion(clientRegion)
+    	                        .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
+    	                        .build();
+		
+		return s3Client;
 	}
 }
