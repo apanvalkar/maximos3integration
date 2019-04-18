@@ -6,7 +6,7 @@ mxe.s3.accesskey = S3 Access key
 
 mxe.s3.bucket = S3 Bucket Name where files get stored
 
-mxe.s3.pseudo.pathprefix = Path prefix like /home/doclinks, same should be in path01 property
+mxe.s3.pseudo.pathprefix = Path prefix like /home/doclinks, same should be in path01 property, so if path01 = /home/doclinks=<some url>, then this property should be set as /home/doclinks.
 
 mxe.s3.region = S3 region like us-east-1
 
